@@ -1,0 +1,754 @@
+Rem Project: Santa Mail
+Rem Created: 09.11.2008 22:27:40
+
+Rem ***** Main Source File *****
+
+`Завантажуємо необхідні бібліотеки DB
+load dll "NDB.dll", 1
+load dll "Newton.dll", 2
+
+if not file exist("run.log") then make file "run.log"
+open to write 4, "run.log"
+
+`sync on
+`sync rate 60
+autocam off
+hide mouse
+disable escapekey
+
+global progDir$, musicCnt, currentMusic, levelTime#
+
+type TWaypoint
+  x#
+  y#
+  z#
+  taken#
+  object#
+endtype
+
+type TLevel
+  file$
+  completed#
+endtype
+
+dim waypoint(1024) as TWaypoint
+dim levels(128) as TLevel
+
+global levelCnt, currentLevel
+
+progDir$ = get dir$()
+
+write string 4, "Loading sounds..."
+loadSounds()
+write string 4,  "Loading music..."
+loadMusic()
+write string 4,  "Loading options..."
+loadOptions()
+
+`Встановлюємо параметри освітлення
+set ambient light 100
+
+`Генеруємо випадкове стартове значення таймера
+randomize timer()
+
+`Початкове положення камери
+position camera 0.0, 5.0, -20.0
+
+`car objkect
+global car = 0
+
+`Materials
+global DefaultMat, WorldMat, CarMat, start, finish, raceTime#
+global Vehicle, VehicleJoint, startObj, finishObj
+global wayPointsLeft, waypointsCnt, waypointsInside, maxWaypointsInside
+
+write string 4,  "Starting up..."
+`Стартуємо программу!
+Truck = 0
+
+TOP:
+camdist# = 10.0
+camheight# = 5.0
+camangle# = 0.0
+
+`Створюємо Світ Фізики
+write string 4,  "Create Newton world..."
+NDB_NewtonCreate
+
+write string 4,  "Set gravity..."
+`Стандартна гравітаційна стала. Для данної гри сила = -40Н
+NDB_SetVector 0.0, -40.0, 0.0
+NDB_SetStandardGravity
+
+`Мінімальний фреймрейт
+NDB_NewtonSetMinimumFramerate 100.0
+
+`Make materials
+write string 4,  "Setup physics materials..."
+gosub SetupMaterials
+
+`Синхронізація часу Світу Фізики
+write string 4,  "Setup timer..."
+time# = NDB_GetElapsedTimeInSec()
+time# = NDB_GetElapsedTimeInSec()
+
+`Данна змінна створює паузу
+GO = 0
+
+gosub mainMenu `newGameMenu
+
+write string 4,  "Starting up..."
+
+start = 0
+finish = 0
+raceTime# = 0
+
+mainCycle:
+`ГОЛОВНИЙ ЦИКЛ ПРОГРАМИ
+do
+   write string 4,  "Calculate automatic collision..."
+   calculate automatic collision
+
+   `Test start
+   write string 4,  "Check vehicle <> level start shape collision..."
+   if (object collision(NDB_GetDBPro(Vehicle), 0) = startObj) then start = 1
+
+   `Test finish
+   write string 4,  "Check vehicle <> level finish shape collision..."
+   if (object collision(NDB_GetDBPro(Vehicle), 0) = finishObj) and (start = 1) and (waypointsLeft = 0) then finish = 1
+
+   if (start = 1) and (finish = 0) and (GO = 1)
+     raceTime# = raceTime# + 0.025
+
+     text 10, 10, "Time used: " + str$(int(raceTime# / 60)) + " : " + str$(int(raceTime# MOD 60))
+     text 10, 20, "Time per level: " + str$(int(levelTime# / 60)) + " : " + str$(int(levelTime# MOD 60))
+   endif
+
+   if (start = 0) and (GO = 1) and (sound playing(3) = 0) then play sound 3
+
+   if (finish = 1) and (raceTime# <= levelTime#)
+     text 10, 10, "Game time: " + str$(int(raceTime# / 60)) + " : " + str$(int(raceTime# MOD 60))
+     sleep 500
+     goto winMenu
+   endif
+
+   if (finish = 1) and (raceTime# > levelTime#)
+     text 10, 10, "Game time: " + str$(int(raceTime# / 60)) + " : " + str$(int(raceTime# MOD 60))
+     sleep 500
+     goto looseMenu
+   endif
+
+   `text 10, 70, "X: "+str$(object position x(NDB_GetDBPro(Vehicle)))
+   `text 10, 80, "Y: "+str$(object position y(NDB_GetDBPro(Vehicle)))
+   `text 10, 90, "Z: "+str$(object position z(NDB_GetDBPro(Vehicle)))
+
+   if (music exist(currentMusic) = 1) and (music playing(currentMusic) = 0)
+     write string 4,  "Play music 1..."
+     inc currentMusic
+
+     if (currentMusic > musicCnt) then currentMusic = 1
+     play music currentMusic
+   endif
+
+   text 10, 40, "Mails left: "+str$(waypointsLeft)+"  Mails found : "+str$(waypointsInside)+" / "+str$(maxWaypointsInside)
+   text 10, 50, "Music: "+str$(currentMusic)+"/"+str$(musicCnt)
+
+   if (escapekey() = 1) then gosub mainMenu
+
+   write string 4,  "Check waypoints..."
+   
+   checkWaypoints()
+
+   write string 4,  "Get Newton update time..."
+   `Знаходимо час після останнього кадру
+   time# = NDB_GetElapsedTimeInSec()
+
+   `Поновлюємо Фізичну Симуляцію
+   defaultFontSize = text size()
+
+   if GO = 1
+     write string 4,  "Update newtonian world..."
+     NDB_NewtonUpdate time#
+   else
+     write string 4,  "Waiting for key..."
+     s$ = "Press [Space] to continue"
+     set text size 28
+     text (screen width() / 2) - (len(s$) / 2), (screen height() / 2), s$
+   endif
+
+   set text size defaultFontSize
+   
+   write string 4,  "Update vehiclejoint..."
+
+   `Поновлюємо машинку
+   NDB_NewtonUpdateTires VehicleJoint
+   
+   write string 4,  "Check keyboard input..."
+
+   `Респавн
+   if lower$(inkey$()) = "r"
+      repeat
+      until lower$(inkey$()) <> "r"
+
+      NDB_NewtonVehicleReset VehicleJoint
+   endif
+
+   `Пауза по натисненню Пробілу
+   if spacekey() and SPACEPRESSED = 0 then SPACEPRESSED = 1
+   if SPACEPRESSED = 1
+      SPACEPRESSED = 2
+      inc GO, 1
+      if GO > 1 then GO = 0
+   endif
+   if spacekey()=0 then SPACEPRESSED = 0
+
+   write string 4,  "Handle camera..."
+
+   `Поновлення положення камери
+   gosub HandleCamera
+   
+   write string 4,  "Handle user input..."
+
+   `Обробка натиснутих клавіш
+   gosub UserInput
+
+    write string 4,  "Render..."
+
+   `Показуємо необхідне зображення на моніторі
+   `sync
+
+    write string 4,  "Repeat?"
+
+loop
+return
+
+endOfProgram:
+  `Кінець програми
+  saveOptions()
+  NDB_NewtonDestroy
+  end
+return
+
+`ФУНКЦІЇ, ВИКОРИСТАНІ У ПРОГРАМІ
+
+`Створення машинки
+function MakeVehicle(Truck, stx#, sty#, stz#)
+   currentDir$ = get dir$()
+
+   set dir "..\..\media\vehicle"
+   `first make the rigid body for the chassis, a simple box!
+   if Truck
+      Vehiclestring$="truck_test.bod"
+   else
+      Vehiclestring$="fiero.bod"
+   endif
+
+   Body = LoadBod( Vehiclestring$, 0.0, 0.0, 0.0, stx#, sty#, stz# )
+   NDB_NewtonBodySetMaterialGroupID Body, CarMat
+
+   set object ambience NDB_GetDBPro( Body ), 10
+   set object transparency NDB_GetDBPro( Body ), 1
+   NDB_NewtonBodySetAutoFreeze Body, 0
+
+   `body made.  let's add the vehicle joint!
+   NDB_SetVector 1, 0.0, 1.0, 0.0   : `up vector required for vehicle joint
+   VehicleJoint = NDB_NewtonConstraintCreateVehicle( Body )
+
+   `now add 4 tires!
+
+   if Truck
+      mass# = 3.0
+      width# = 0.6
+      radius# = 0.65
+
+      xoff1# = 1.45
+      xoff2# = 1.85
+      yoff# = -0.5
+      zoff# = 1.2
+
+      shock#=0.35
+      `shock#=0.75
+      spring#=1.8
+      `length#=0.55
+      length#=0.7
+   else
+      mass# = 8.0
+      width# = 0.7
+      radius# = 0.65
+
+      xoff1# = 2.5
+      xoff2# = 2.00
+      yoff# = 0.45
+      zoff# = 1.3
+
+      shock#=0.95
+      `shock#=2.5
+      spring#=1.75
+      `length#=0.4
+      length#=0.6
+   endif
+
+   dim Wheels(4)
+   wi = 1
+
+   for x=-1 to 1 step 2
+      for z=-1 to 1 step 2
+         `first make the offset matrix
+         if x>0
+            NDB_BuildMatrix 0.0, 0.0, 0.0, (xoff1# * x), yoff#, (zoff# * z)
+         else
+            NDB_BuildMatrix 0.0, 0.0, 0.0, (xoff2# * x), yoff#, (zoff# * z)
+         endif
+
+         `next make the pin
+         NDB_SetVector 1, 0.0, 0.0, -1.0
+
+         `now make the wheel!
+         Wheels(wi) = NDB_NewtonVehicleAddTire( VehicleJoint, mass#, width#, radius#, shock#,spring#,length# )
+
+         obj = FreeObject()
+         load object "wheel.x", obj
+         load image "fieroskin.jpg",100
+         texture object obj,100
+
+         rotate object obj, 0.0, 90.0, 0.0
+         fix object pivot obj
+         set object specular obj, rgb(255,255,255)
+         set object specular power obj, 100
+
+         NDB_VehicleTireSetDBProData VehicleJoint, Wheels(wi), obj
+
+         `set wheel max brakes
+         NDB_VehicleTireSetMaxBrake VehicleJoint, Wheels(wi), 27000.0
+
+         inc wi
+
+      next z
+   next x
+
+   `Finalize the vehicle!
+   NDB_GetStandardGravity
+   NDB_NewtonVehicleBalanceTires VehicleJoint, NDB_GetVector_Y()
+
+   set dir currentDir$
+endfunction Body
+
+function FreeObject()
+   repeat
+      inc i
+      if object exist(i)=0 then found=1
+   until found
+endfunction i
+
+SetupMaterials:
+
+   DefaultMat = NDB_NewtonMaterialGetDefaultGroupID()
+   WorldMat = NDB_NewtonMaterialCreateGroupID()
+   CarMat = NDB_NewtonMaterialCreateGroupID()
+
+   StartMat = NDB_NewtonMaterialCreateGroupID()
+   FinishMat = NDB_NewtonMaterialCreateGroupID()
+
+   NDB_NewtonMaterialSetDefaultFriction DefaultMat, CarMat, 0.7, 0.5
+   NDB_NewtonMaterialSetDefaultFriction WorldMat, CarMat, 0.7, 0.5
+   NDB_NewtonMaterialSetDefaultFriction DefaultMat, WorldMat, 0.7, 0.5
+
+   NDB_NewtonMaterialSetCollisionCallback DefaultMat, CarMat
+   NDB_NewtonMaterialSetCollisionCallback DefaultMat, WorldMat
+   NDB_NewtonMaterialSetCollisionCallback CarMat, StartMat
+   NDB_NewtonMaterialSetCollisionCallback CarMat, FinishMat
+
+return
+
+function MakeFloor(Map$)
+   obj = FreeObject()
+   load object Map$, obj
+   scale object obj, 5, 5, 5
+   set shadow shading on obj
+
+   Col = NDB_NewtonCreateTreeCollision( obj )
+   Body = NDB_NewtonCreateBody( Col )
+
+   NDB_NewtonBodySetMaterialGroupID Body, WorldMat
+endfunction
+
+UserInput:
+   if lower$(inkey$()) = "m"
+      write string 4,  "key <m>"
+      wait 150
+      inc followcamera
+      if followcamera > 2 then followcamera = 1
+      write string 4,  "end key <w>"
+   endif
+
+   if scancode() = 0 then KEYPRESSED = 0
+
+   `THERE ARE THE CONTROLS FOR MOVING THE VEHICLE!!!
+   ACCEL = 0
+
+   `if the user pressed "W" key, set positive torque for the tires
+   if keystate(17)
+      write string 4,  "key <w>"
+      ACCEL = 1
+      Torque# = 9500.0
+
+      if (sound playing(1) = 0) then play sound 1
+      write string 4,  "end key <w>"
+   endif
+
+   `if the user pressed "S" key, set negative torque for the tires.
+   if keystate(31)
+      write string 4,  "key <s>"
+      ACCEL = 1
+      Torque# = -5600.0
+      if (sound playing(1) = 0) then play sound 1
+      write string 4,  "end key <s>"
+   endif
+
+   `Клавіша Q змінює музику на наступну
+   if (keystate(16))
+     write string 4,  "key <16>"
+     sleep 100
+     stop music currentMusic
+     inc currentMusic
+
+     if (currentMusic > musicCnt) then currentMusic = 1
+     play music currentMusic
+     write string 4,  "end key <16>"
+   endif
+
+   `Клавіша E змінює музику на попередню
+   if (keystate(18))
+     write string 4,  "key <18>"
+     sleep 100
+     stop music currentMusic
+     dec currentMusic
+
+     if (currentMusic < 1) then currentMusic = musicCnt - 1
+     play music currentMusic
+     write string 4,  "end key <18>"
+   endif
+
+   `if neither is pressed, slowly turn torque down to 0
+
+   `steering basically works the same way!  However I've added a small system to adjust how far
+   `the tires can steer based on the speed of the vehicle.  at slow speeds, the tires can turn up
+   `to 45 degrees... but at high speeds, that is reduced to only 10 degrees.  this should make
+   `the vehicle easer to drive at high speeds.
+   STEERING = 0
+
+   write string 4,  "Update newton body velocity"
+   NDB_NewtonBodyGetVelocity Vehicle
+   velx# = NDB_GetVector_X()
+   vely# = NDB_GetVector_X()
+   velz# = NDB_GetVector_X()
+   vel# = sqrt( (velx#^2)+(vely#^2)+(velz#^2) )
+
+   if vel# > 100.0 then vel# = 100.0
+
+   MaxSteeringAngle# = 15.0
+
+   if keystate(32)
+      write string 4,  "key <32>"
+      STEERING = 1
+      inc steerangle#, 5
+      if steerangle# > MaxSteeringAngle# then steerangle# = MaxSteeringAngle#
+      write string 4,  "end key <32>"
+   endif
+
+   if keystate(30)
+      write string 4,  "key <30>"
+      STEERING = 1
+      dec steerangle#, 5
+      if steerangle# < -MaxSteeringAngle# then steerangle# = -MaxSteeringAngle#
+      write string 4,  "end key <30>"
+   endif
+
+   if STEERING = 0
+      steerangle# = 0
+   endif
+
+   `finally, if the control key is pressed, we turn the brakes on!
+   if controlkey() then BRAKES = 1 else BRAKES = 0
+
+   write string 4,  "update wheels"
+   `now loop through each wheel, and apply the torque, steering, and brakes!
+   for i=1 to 4
+      write string 4,  "update wheel " + str$(i)
+   
+      if Truck
+         maxtire=4
+      else
+         maxtire=2
+      endif
+      if i <= maxtire
+         if 190 > NDB_NewtonVehicleGetTireOmega(VehicleJoint, Wheels(i))
+            NDB_VehicleTireSetTorque VehicleJoint, Wheels(i), torque#
+         else
+            torque#=0.0
+         endif
+         if ACCEL=0
+            torque# = torque# * 0.25
+         endif
+
+         if (i > 2)
+            `NDB_VehicleTireSetTorque VehicleJoint, Wheels(i), torque#
+         else
+            NDB_VehicleTireSetTorque VehicleJoint, Wheels(i), torque# * 2
+         endif
+      endif
+
+      if i > 2
+        NDB_VehicleTireSetSteeringAngle VehicleJoint, Wheels(i), steerangle#
+        NDB_NewtonVehicleSetTireMaxSideSleepSpeed VehicleJoint, Wheels(i), 20.0
+      else
+        `NDB_VehicleTireSetSteeringAngle VehicleJoint, Wheels(i), -steerangle# / 4
+        NDB_NewtonVehicleSetTireMaxSideSleepSpeed VehicleJoint, Wheels(i), 10.0
+      endif
+
+      if BRAKES then NDB_VehicleTireBrakesOn VehicleJoint, Wheels(i)
+   next i
+   write string 4,  "end update wheels"
+
+   if (sound playing(1) = 0) then play sound 2
+   
+   write string 4,  "end handling user input"
+return
+
+HandleCamera:
+
+      NDB_NewtonBodyGetMatrix Vehicle
+      NDB_GetMatrix
+      xx# = -NDB_GetVector_X(1)
+      xz# = -NDB_GetVector_Z(1)
+
+      NDB_BodyGetPosition Vehicle
+      x# = NDB_GetVector_X()
+      y# = NDB_GetVector_Y()
+      z# = NDB_GetVector_Z()
+
+      a# = atanfull( xx#, xz# )
+      inc a#, camangle#
+
+      cx# = x# + (camdist#*sin(a#))
+      cy# = y# + (camheight#)
+      cz# = z# + (camdist#*cos(a#))
+
+      position camera cx#, cy#, cz#
+      point camera x#, y#, z#
+
+return
+
+rem THIS IS NECESSARY TO FORCE DBPRO TO INCLUDE THE DLLs for MEMBLOCKS
+function NeverCalled()
+   if memblock exist(1) then delete memblock 1
+endfunction
+
+function LoadLevel(DataFileName$)
+  `READ SETTINGS FROM FILE
+   currentDir$ = get dir$()
+
+   set dir "..\..\media\maps"
+
+   makeWayPoints(DataFileName$+"ai")
+
+   open to read 1, DataFileName$
+   read string 1, mapFile$
+
+   MakeFloor(mapFile$)
+
+   `SCALE
+   read string 1, s$
+   sx1# = val(s$)
+
+   read string 1, s$
+   sy1# = val(s$)
+
+   read string 1, s$
+   sz1# = val(s$)
+
+   read string 1, s$
+   sx2# = val(s$)
+
+   read string 1, s$
+   sy2# = val(s$)
+
+   read string 1, s$
+   sz2# = val(s$)
+
+   `ROTATION
+   read string 1, s$
+   rx1# = val(s$)
+
+   read string 1, s$
+   ry1# = val(s$)
+
+   read string 1, s$
+   rz1# = val(s$)
+
+   read string 1, s$
+   rx2# = val(s$)
+
+   read string 1, s$
+   ry2# = val(s$)
+
+   read string 1, s$
+   rz2# = val(s$)
+
+   `POSITION
+   read string 1, s$
+   x1# = val(s$)
+
+   read string 1, s$
+   y1# = val(s$)
+
+   read string 1, s$
+   z1# = val(s$)
+
+   read string 1, s$
+   x2# = val(s$)
+
+   read string 1, s$
+   y2# = val(s$)
+
+   read string 1, s$
+   z2# = val(s$)
+
+   `CAR POSITION
+   read string 1, s$
+   stx1# = val(s$)
+
+   read string 1, s$
+   sty1# = val(s$)
+
+   read string 1, s$
+   stz1# = val(s$)
+
+   read string 1, s$
+   levelTime# = val(s$)
+
+   close file 1
+
+   Vehicle = MakeVehicle(Truck, stx1#, sty1#, stz1#)
+
+   `STARTLINE
+   startObj = FreeObject()
+   make object cube startObj, 1
+   scale object startObj, sx1#, sy1#, sz1#
+
+   if (image exist(2)) then delete image 2
+
+   load image "start.bmp", 2
+   texture object startObj, 2
+
+   position object startObj, x1#, y1#, z1#
+   rotate object startObj, rx1#, ry1#, rz1#
+
+   set object collision on startObj
+   set object collision on NDB_GetDBPro(Vehicle)
+
+  `FINISHLINE
+   finishObj = FreeObject()
+   make object cube finishObj, 1
+   scale object finishObj, sx2#, sy2#, sz2#
+
+   if (image exist(1) = 1) then delete image 1
+
+   load image "finish.bmp", 1
+   texture object finishObj, 1
+
+   position object finishObj, x2#, y2#, z2#
+   rotate object finishObj, rx2#, ry2#, rz2#
+
+   set object collision on finishObj
+
+   set dir currentDir$
+
+endfunction
+
+function makeWayPoints(fileName$)
+  open to read 1, fileName$
+
+    read string 1, s$
+    wayPointsCnt = val(s$)
+    wayPointsLeft = wayPointsCnt
+
+    read string 1, s$
+    maxWaypointsInside = val(s$)
+
+    for i = 1 to waypointsCnt
+      read string 1, s$
+      wayPoint(i).x# = val(s$)
+
+      read string 1, s$
+      wayPoint(i).y# = val(s$)
+
+      read string 1, s$
+      wayPoint(i).z# = val(s$)
+
+      wayPoint(i).taken# = 0
+
+      n = 100+i
+      `make object cube n, 5
+      load object "letter.x", n
+      scale object n, 200, 200, 200
+      wayPoint(i).object# = n
+      position object n, wayPoint(i).x#, wayPoint(i).y#, wayPoint(i).z#
+      set object collision on n
+    next i
+
+  close file 1
+endfunction
+
+function checkWaypoints()
+  for i = 1 to wayPointsCnt
+    write string 4,  "Checking waypoint" + str$(i) + " out of " + str$(wayPointsCount) + "..."
+
+    if (object collision(NDB_GetDBPro(Vehicle), waypoint(i).object#))
+
+      `If we're not full and the target is here, pick it up!
+      if (waypoint(i).taken# = 0) and (waypointsInside < maxWaypointsInside)
+        waypoint(i).taken# = 1
+        inc waypointsInside
+        hide object waypoint(i).object#
+        dec waypointsLeft
+        play sound 4
+      endif
+
+    endif
+
+    if (object collision(NDB_GetDBPro(Vehicle), startObj))
+      waypointsInside = 0
+      play sound 5
+    endif
+
+    rotate object waypoint(i).object#, 0, object angle y(waypoint(i).object#) + 0.25, 0
+
+  next i
+endfunction
+
+function loadSounds()
+  load sound progDir$+"\media\sound\Rumble.wav", 1
+  load sound progDir$+"\media\sound\Vehicle.wav", 2
+  load sound progDir$+"\media\sound\VehicleAppear.wav", 3
+  load sound progDir$+"\media\sound\Item.wav", 4
+  load sound progDir$+"\media\sound\Unload.wav", 5
+endfunction
+
+function loadMusic()
+  set dir progDir$+"\media\music\"
+  perform checklist for files
+
+  musicCnt = checklist quantity()
+
+  for i = 3 to musicCnt - 2
+    write to clipboard checklist string$(i)
+    load music checklist string$(i), i - 2
+  next i
+
+  musicCnt = musicCnt - 5
+
+  currentMusic = 1
+
+  set dir progDir$
+endfunction

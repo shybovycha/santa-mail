@@ -1,0 +1,738 @@
+global screenWidth, screenHeight, musicVolume, soundVolume, music, sound, fullscreen, bitrate
+
+mainMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 4
+  dim menuItem$(10)
+
+  menuItem$(0) = "New game"
+  menuItem$(1) = "Options"
+  menuItem$(2) = "Help"
+  menuItem$(3) = "Exit"
+
+  do
+    cls
+
+    if (escapekey() = 1)
+      if (start = 1) then sleep 500 : goto mainCycle
+      if (start = 0) then goto endOfProgram
+    endif
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then gosub newGameMenu
+      if (cursor = 2) then gosub optionsMenu
+      if (cursor = 3) then gosub helpMenu
+      if (cursor = 4) then goto endOfProgram
+
+      exit
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 15, 10 * cursor, ">>>"
+    text 150, 150, "Main menu"
+
+    sync
+    sleep 100
+  loop
+return
+
+optionsMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 3
+  dim menuItem$(10)
+
+  menuItem$(0) = "Graphics"
+  menuItem$(1) = "Sound"
+  menuItem$(2) = "Back"
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto mainMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then gosub videoOptionsMenu
+      if (cursor = 2) then gosub soundOptionsMenu
+
+      goto mainMenu
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 150, 150, "Options"
+    text 15, 10 * cursor, ">>>"
+
+    sync
+    sleep 100
+  loop
+return
+
+videoOptionsMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 4
+  dim menuItem$(10)
+
+  menuItem$(0) = "Screen resolution"
+  menuItem$(1) = "Brightness"
+  menuItem$(2) = "Fullscreen"
+  menuItem$(3) = "Back"
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto mainMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then gosub resolutionVideoOptionsMenu
+      if (cursor = 2) then gosub bitrateVideoOptionsMenu
+      if (cursor = 3) then gosub fullscreenVideoOptionsMenu
+
+      goto mainMenu
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 15, 10 * cursor, ">>>"
+    text 150, 150, "Graphics options"
+
+    sync
+    sleep 100
+  loop
+return
+
+fullscreenVideoOptionsMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 4
+  dim menuItem$(10)
+
+  menuItem$(0) = "Fullscreen"
+  menuItem$(1) = "Windowed"
+  menuItem$(2) = "Save"
+  menuItem$(3) = "Back"
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto videoOptionsMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then fullscreen = 1
+      if (cursor = 2) then fullscreen = 0
+      if (cursor = 3) then saveOptions() : goto videoOptionsMenu
+      if (cursor = 4) then goto videoOptionsMenu
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 150, 150, "Fullscreen"
+
+    if (fullscreen = 1)
+      text 150, 200, "Using fullscreen mode"
+    else
+      text 150, 200, "Using windowed mode"
+    endif
+
+    text 15, 10 * cursor, ">>>"
+
+    sync
+    sleep 100
+  loop
+return
+
+resolutionVideoOptionsMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 8
+  dim menuItem$(10)
+
+  menuItem$(0) = "640x480"
+  menuItem$(1) = "800x600"
+  menuItem$(2) = "1024x768"
+  menuItem$(3) = "1280x960"
+  menuItem$(4) = "1280x1024"
+  menuItem$(5) = "1600x1200"
+  menuItem$(6) = "Save"
+  menuItem$(7) = "Back"
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto videoOptionsMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then screenWidth = 640 : screenHeight = 480
+      if (cursor = 2) then screenWidth = 800 : screenHeight = 600
+      if (cursor = 3) then screenWidth = 1024 : screenHeight = 768
+      if (cursor = 4) then screenWidth = 1280 : screenHeight = 960
+      if (cursor = 5) then screenWidth = 1280 : screenHeight = 1024
+      if (cursor = 6) then screenWidth = 1600 : screenHeight = 1200
+      if (cursor = 7) then saveOptions() : goto videoOptionsMenu
+      if (cursor = 8) then goto videoOptionsMenu
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 15, 10 * cursor, ">>>"
+    text 150, 150, "Screen resolution"
+
+    text 150, 200, "Current screen resolution: " + str$(screenWidth) + "x" + str$(screenHeight)
+
+    sync
+    sleep 100
+  loop
+return
+
+bitrateVideoOptionsMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 4
+  dim menuItem$(10)
+
+  menuItem$(0) = "16 bit"
+  menuItem$(1) = "32 bit"
+  menuItem$(2) = "Save"
+  menuItem$(3) = "Back"
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto videoOptionsMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then bitrate = 16
+      if (cursor = 2) then bitrate = 32
+      if (cursor = 3) then saveOptions() : goto videoOptionsMenu
+      if (cursor = 4) then goto videoOptionsMenu
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 15, 10 * cursor, ">>>"
+    text 150, 150, "Image quality"
+
+    text 150, 200, "Current color depth: "+str$(bitrate)
+
+    sync
+    sleep 100
+  loop
+return
+
+soundOptionsMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 5
+  dim menuItem$(10)
+
+  menuItem$(0) = "In-game sound"
+  menuItem$(1) = "Music"
+  menuItem$(2) = "Sound volume"
+  menuItem$(3) = "Music volume"
+  menuItem$(4) = "Back"
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto optionsMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then gosub soundSoundOptionsMenu
+      if (cursor = 2) then gosub musicSoundOptionsMenu
+      if (cursor = 3) then gosub soundVolumeSoundOptionsMenu
+      if (cursor = 4) then gosub musicVolumeSoundOptionsMenu
+      if (cursor = 5) then goto optionsMenu
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 150, 150, "Sound options"
+    text 15, 10 * cursor, ">>>"
+
+    sync
+    sleep 100
+  loop
+return
+
+soundSoundOptionsMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 4
+  dim menuItem$(10)
+
+  menuItem$(0) = "Sound ON"
+  menuItem$(1) = "Sound OFF"
+  menuItem$(2) = "Save"
+  menuItem$(3) = "Back"
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto soundOptionsMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then sound = 1
+      if (cursor = 2) then sound = 0
+      if (cursor = 3) then saveOptions() : goto soundOptionsMenu
+      if (cursor = 4) then goto soundOptionsMenu
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 150, 150, "Sound options"
+    text 15, 10 * cursor, ">>>"
+
+    if (sound = 1)
+      text 150, 200, "Sound ON"
+    else
+      text 150, 200, "Sound OFF"
+    endif
+
+    sync
+    sleep 100
+  loop
+return
+
+musicSoundOptionsMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 4
+  dim menuItem$(10)
+
+  menuItem$(0) = "Music ON"
+  menuItem$(1) = "Music OFF"
+  menuItem$(2) = "Save"
+  menuItem$(3) = "Back"
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto soundOptionsMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then music = 1
+      if (cursor = 2) then music = 0
+      if (cursor = 3) then saveOptions() : goto soundOptionsMenu
+
+      if (cursor = 4)
+        goto soundOptionsMenu
+      endif
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 15, 10 * cursor, ">>>"
+    text 150, 150, "Music options"
+
+    if (music = 1)
+      text 150, 200, "Music ON"
+    else
+      text 150, 200, "Music OFF"
+    endif
+
+    sync
+    sleep 100
+  loop
+return
+
+soundVolumeSoundOptionsMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 7
+  dim menuItem$(10)
+
+  menuItem$(0) = "10%"
+  menuItem$(1) = "25%"
+  menuItem$(2) = "50%"
+  menuItem$(3) = "75%"
+  menuItem$(4) = "100%"
+  menuItem$(5) = "Save"
+  menuItem$(6) = "Back"
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto soundOptionsMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then soundVolume = 10
+      if (cursor = 2) then soundVolume = 25
+      if (cursor = 3) then soundVolume = 50
+      if (cursor = 4) then soundVolume = 75
+      if (cursor = 5) then soundVolume = 100
+      if (cursor = 6) then saveOptions() : goto soundOptionsMenu
+      if (cursor = 7) then goto soundOptionsMenu
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 15, 10 * cursor, ">>>"
+    text 150, 150, "Sound volume"
+
+    text 150, 200, "Current sound volume: "+str$(soundVolume)
+
+    sync
+    sleep 100
+  loop
+return
+
+musicVolumeSoundOptionsMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 7
+  dim menuItem$(10)
+
+  menuItem$(0) = "10%"
+  menuItem$(1) = "25%"
+  menuItem$(2) = "50%"
+  menuItem$(3) = "75%"
+  menuItem$(4) = "100%"
+  menuItem$(5) = "Save"
+  menuItem$(6) = "Back"
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto soundOptionsMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      if (cursor = 1) then musicVolume = 10
+      if (cursor = 2) then musicVolume = 25
+      if (cursor = 3) then musicVolume = 50
+      if (cursor = 4) then musicVolume = 75
+      if (cursor = 5) then musicVolume = 100
+      if (cursor = 6) then saveOptions() : goto soundOptionsMenu
+      if (cursor = 7) then goto soundOptionsMenu
+    endif
+
+    for i = 1 to cursorCnt
+      text 50, (i * 10), menuItem$(i-1)
+    next i
+
+    text 15, 10 * cursor, ">>>"
+    text 150, 150, "Music volume"
+
+    text 150, 200, "Current music volume: "+str$(musicVolume)
+
+    sync
+    sleep 100
+  loop
+return
+
+helpMenu:
+  sleep 500
+  cls
+
+  if (image exist(1) = 1) then delete image 1
+  load image progDir$+"\media\help.jpg", 1
+  paste image 1, 0, 0
+
+  sync
+  suspend for key
+
+  goto mainMenu
+return
+
+winMenu:
+  sleep 500
+  cls
+
+  if (image exist(1) = 1) then delete image 1
+  load image progDir$+"\media\levelComplete.jpg", 1
+  paste image 1, 0, 0
+
+  sync
+  suspend for key
+
+  levels(currentLevel).completed# = 1
+
+  fl = 0
+  for i = 1 to levelCnt
+    if (levels(i).completed# = 0) then fl = 1
+  next i
+
+  if (fl = 0) then goto absoluteWinnerMenu
+
+  goto mainMenu
+return
+
+looseMenu:
+  sleep 500
+  cls
+
+  if (image exist(1) = 1) then delete image 1
+  load image progDir$+"\media\levelFailed.jpg", 1
+  paste image 1, 0, 0
+
+  sync
+  suspend for key
+
+  goto mainMenu
+return
+
+absoluteWinnerMenu:
+  sleep 500
+  cls
+
+  if (image exist(1) = 1) then delete image 1
+  load image progDir$+"\media\winner.jpg", 1
+  paste image 1, 0, 0
+
+  sync
+  suspend for key
+
+  goto mainMenu
+return
+
+newGameMenu:
+  sleep 500
+  cursor = 1
+  cursorCnt = 1
+  dim maps$(128)
+
+  set dir "media\maps"
+
+  for f = 1 to 128
+    s$ = "Map"+str$(f)+".map"
+
+    if (file exist(s$))
+      maps$(cursorCnt-1) = left$(s$, len(s$) - 4)
+      inc cursorCnt
+     endif
+  next f
+
+  dec cursorCnt
+
+  do
+    cls
+
+    if (escapekey() = 1) then goto mainMenu
+
+    if (upkey() = 1) then dec cursor
+    if (downkey() = 1) then inc cursor
+
+    if (cursor > cursorCnt) then cursor = cursorCnt
+    if (cursor < 1) then cursor = 1
+
+    if (returnkey() = 1)
+      exit
+    endif
+
+    for i = 1 to cursorCnt
+      if (levels(i).completed# = 1)
+        text 50, (i * 10), "District #"+str$(i)+"  [Completed]"   `maps$(i-1)
+      else
+        text 50, (i * 10), "District #"+str$(i)
+      endif
+    next i
+
+    text 15, 10 * cursor, ">>>"
+    text 150, 150, "Change district"
+
+    sync
+    sleep 100
+  loop
+
+  for i = 1 to levelCnt
+    if (levels(i).file$ = maps$(cursor)) then currentLevel = i
+  next i
+
+  briefing("Map"+str$(cursor)+".jpg")
+
+  cls
+  set text to bold
+  defaultTextSize = text size()
+  set text size 32
+  text 50, 50, "Loading..."
+  sync
+  set text size defaultTextSize
+  set text to normal
+  sleep 500
+  LoadLevel("Map"+str$(cursor)+".map")
+  goto mainCycle
+
+return
+
+function saveOptions
+  set dir progDir$
+  if (file exist("options.cfg") = 1) then delete file "options.cfg"
+
+  open to write 1, "options.cfg"
+    write string 1, str$(fullscreen)
+    write string 1, str$(bitrate)
+    write string 1, str$(screenWidth)
+    write string 1, str$(screenHeight)
+    write string 1, str$(musicVolume)
+    write string 1, str$(soundVolume)
+    write string 1, str$(music)
+    write string 1, str$(sound)
+    write string 1, str$(levelCnt)
+
+    for i = 1 to levelCnt
+      write string 1, levels(i).file$
+      write string 1, str$(levels(i).completed#)
+    next i
+  close file 1
+endfunction
+
+function loadOptions
+  if (file exist("options.cfg") = 0) then exitfunction
+
+  open to read 1, "options.cfg"
+    read string 1, s$
+    fullscreen = val(s$)
+
+    read string 1, s$
+    bitrate = val(s$)
+
+    read string 1, s$
+    screenWidth = val(s$)
+
+    read string 1, s$
+    screenHeight = val(s$)
+
+    read string 1, s$
+    musicVolume = val(s$)
+
+    read string 1, s$
+    soundVolume = val(s$)
+
+    read string 1, s$
+    music = val(s$)
+
+    read string 1, s$
+    sound = val(s$)
+
+    read string 1, s$
+    n = val(s$)
+
+    for i = 1 to n
+      read string 1, s$
+      levels(i).file$ = s$
+
+      read string 1, s$
+      levels(i).completed# = val(s$)
+    next i
+  close file 1
+
+  if (fullscreen = 1) then set window off
+  set display mode screenWidth, screenHeight, bitrate
+
+  for i = 1 to 5
+    if (soundVolume > 0)
+      set sound volume i, soundVolume
+    else
+      set sound volume i, 0
+    endif
+  next i
+
+  for i = 1 to musicCnt
+    if (music exist(i) = 0) then exit
+
+    if (musicVolume > 0)
+      set music volume i, musicVolume
+    else
+      set music volume i, 0
+    endif
+  next i
+endfunction
+
+function briefing(mapFileName$)
+  sleep 500
+  if (image exist(1)) then delete image 1
+
+  load image mapFileName$, 1
+  paste image 1, 0, 0
+  sync
+
+  suspend for key
+endfunction
